@@ -1,4 +1,4 @@
-module AutomotiveDrivingModels 
+module AutomotiveDrivingModels
 
 using Printf
 using LinearAlgebra
@@ -6,7 +6,8 @@ using Parameters
 using StaticArrays
 using Distributions
 using Reexport
-@reexport using Vec 
+using Dierckx
+@reexport using Vec
 @reexport using Records
 
 # Roadways
@@ -14,7 +15,7 @@ using Reexport
 export StraightRoadway,
        mod_position_to_roadway,
        get_headway
-       
+
 include("roadways/straight_1d_roadways.jl")
 
 export CurvePt,
@@ -29,7 +30,7 @@ export CurvePt,
 
 include("roadways/curves.jl")
 
-export     
+export
     LaneTag,
     LaneBoundary,
     Lane,
@@ -69,7 +70,7 @@ export
 
 include("roadways/roadways.jl")
 
-export 
+export
     Frenet,
     get_posG,
     NULL_FRENET
@@ -183,7 +184,7 @@ export
 include("feature-extraction/neighbors_features.jl")
 include("feature-extraction/lane_features.jl")
 
-export 
+export
     AbstractFeature,
     FeatureValue,
     FeatureState,
@@ -215,7 +216,7 @@ export
 
 include("feature-extraction/lidar_sensor.jl")
 
-## Actions 
+## Actions
 
 export
     propagate,
@@ -266,7 +267,8 @@ export
     DIR_MIDDLE,
     DIR_LEFT,
     MOBIL,
-    TimLaneChanger
+    TimLaneChanger,
+    MPCDriver
 
 include("behaviors/lane_following_drivers.jl")
 include("behaviors/princeton_driver.jl")
@@ -279,8 +281,9 @@ include("behaviors/tim_lane_changer.jl")
 include("behaviors/lat_lon_separable_driver.jl")
 include("behaviors/tim_2d_driver.jl")
 include("behaviors/sidewalk_pedestrian_model.jl")
+include("behaviors/mpc_driver.jl")
 
-export 
+export
     get_actions!,
     tick!,
     reset_hidden_states!,
@@ -290,5 +293,15 @@ export
 
 include("simulation/simulation.jl")
 include("simulation/callbacks.jl")
+
+export
+    MPCState,
+    WrapPosNegPi,
+    optimise_trajectory,
+    GetΔtVec,
+    get_knots
+include("mpc/motion_model.jl")
+include("mpc/helpers.jl")
+include("mpc/mpc_traj_gen.jl")
 
 end # AutomotiveDrivingModels
