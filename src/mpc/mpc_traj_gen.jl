@@ -109,12 +109,14 @@ function optimise_trajectory(target::MPCState, params::Vector{Float64},
 								early_term::Float64=1e-9)
 	a1 = nothing
 	δ1 = nothing
+	s_fin = nothing
 	old_cost = Inf
     for i in 1:iters
 		s = MPCState()
 		set_initial_state!(s, initial)
 
 		s, a1, δ1 = generate_trajectory!(s, params, hyperparams)
+		s_fin = copy(s)
         Δs = state_diff(target, s)
 		set_initial_state!(s, initial)
 		c = traj_cost!(s, params, target, hyperparams)
@@ -141,5 +143,5 @@ function optimise_trajectory(target::MPCState, params::Vector{Float64},
 		params[4:6] .= clamp!(params[4:6], MIN_δ, MAX_δ)
     end
 
-    return params, a1, δ1
+    return params, a1, δ1, s_fin
 end

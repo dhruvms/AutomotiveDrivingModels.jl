@@ -3,50 +3,66 @@ using AutoViz
 using Distributions
 using Interact
 
-roadway = gen_stadium_roadway(4, length=150.0, width=50.0, radius=10.0)
-num_vehs = 1
+lanes = 4
+length = 250.0
+width = 10.0
+radius = 20.0
+
+roadway = gen_stadium_roadway(lanes, length=length, width=width, radius=radius)
+num_vehs = 40
 timestep = 0.2
+max_v = 15.0
 
 scene = Scene()
-push!(scene, Vehicle(VehicleState(VecSE2(0.0,-2*DEFAULT_LANE_WIDTH,0.0),roadway,15.0), VehicleDef(),1))
-push!(scene,Vehicle(VehicleState(VecSE2(15.0,-2*DEFAULT_LANE_WIDTH,0.0), roadway, 10.0), VehicleDef(), 2))
-push!(scene,Vehicle(VehicleState(VecSE2(10.0,-DEFAULT_LANE_WIDTH,0.0), roadway, 15.0), VehicleDef(), 3))
-push!(scene,Vehicle(VehicleState(VecSE2(10.0,-3*DEFAULT_LANE_WIDTH,0.0), roadway, 5.0), VehicleDef(), 4))
-push!(scene,Vehicle(VehicleState(VecSE2(20.0,0.0,0.0), roadway, 5.0), VehicleDef(), 5))
-push!(scene,Vehicle(VehicleState(VecSE2(30.0,-2*DEFAULT_LANE_WIDTH,0.0), roadway, 5.0), VehicleDef(), 6))
-push!(scene,Vehicle(VehicleState(VecSE2(40.0,-DEFAULT_LANE_WIDTH,0.0), roadway, 5.0), VehicleDef(), 7))
-
-car_colors = get_pastel_car_colors(scene)
-cam = FitToContentCamera()
-
+carcolors = Dict{Int,Colorant}()
 models = Dict{Int, DriverModel}()
-models[1] = MPCDriver(timestep)
-models[2] = Tim2DDriver(timestep,
-        mlane = MOBIL(timestep),
-    )
-models[3] = LatLonSeparableDriver( # produces LatLonAccels
-        ProportionalLaneTracker(), # lateral model
-        IntelligentDriverModel(), # longitudinal model
-)
-models[4] = Tim2DDriver(timestep,
-        mlane = MOBIL(timestep),
-    )
-models[5] = Tim2DDriver(timestep,
-    mlane = MOBIL(timestep),
-)
-models[6] = LatLonSeparableDriver( # produces LatLonAccels
-    ProportionalLaneTracker(), # lateral model
-    IntelligentDriverModel(), # longitudinal model
-)
-models[7] = Tim2DDriver(timestep,
-    mlane = MOBIL(timestep),
-)
+offset = (length/(num_vehs/lanes))
+v_num = 1
+for i in 1:(num_vehs/lanes)
+    x_offset = (i-1) * offset
+    for j in 1:lanes
+        type = rand()
+        side = rand()
 
-nticks = 1000
+        x = x_offset
+        y = 0.0
+        th = 0.0
+        if side > 0.5
+            y += width + 2*radius + (j-1) * DEFAULT_LANE_WIDTH
+            th = π
+        else
+            y += (1-j) * DEFAULT_LANE_WIDTH
+        end
+        v = max(1.0, rand() * max_v) * 2.0
+
+        push!(scene, Vehicle(VehicleState(VecSE2(x, y, th), roadway, 0.0), VehicleDef(), v_num))
+        if type <= 0.05
+            models[v_num] = MPCDriver(timestep)
+            v = 0.0
+            carcolors[v_num] = MONOKAI["color1"]
+        elseif type > 0.05 && type <= 0.5
+            models[v_num] = Tim2DDriver(timestep,
+                    mlane = MOBIL(timestep)
+                    )
+            carcolors[v_num] = MONOKAI["color3"]
+        else
+            models[v_num] = LatLonSeparableDriver( # produces LatLonAccels
+                    ProportionalLaneTracker(), # lateral model
+                    IntelligentDriverModel(), # longitudinal model
+                    )
+            carcolors[v_num] = MONOKAI["color4"]
+        end
+        set_desired_speed!(models[v_num], v)
+        global v_num += 1
+    end
+end
+cam = FitToContentCamera(0.01)
+
+nticks = 2000
 rec = SceneRecord(nticks+1, timestep)
 simulate!(rec, scene, roadway, models, nticks)
-render(rec[0], roadway, cam=cam, car_colors=car_colors)
+render(rec[0], roadway, cam=cam, car_colors=carcolors)
 
 @manipulate for frame_index in 1:nframes(rec)
-    render(rec[frame_index-nframes(rec)],roadway,cam=cam,car_colors=car_colors)
+    render(rec[frame_index-nframes(rec)], roadway, cam=cam, car_colors=carcolors)
 end

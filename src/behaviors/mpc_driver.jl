@@ -19,7 +19,8 @@ mutable struct MPCDriver <: DriverModel{LatLonAccel}
     # Outputs
     a::Float64
 	δ::Float64
-    v_des::Float64
+	v_des::Float64
+    stop_d::Float64
 
     # MPC Hyperparameters
     n::Int64
@@ -37,7 +38,8 @@ mutable struct MPCDriver <: DriverModel{LatLonAccel}
         noise_θ::Float64=1.0,
         num_params::Int64=6,
 		lookahead::Float64=50.0,
-		v_des::Float64=10.0
+		v_des::Float64=10.0,
+		stop_d::Float64=28.125
         )
         retval = new()
 
@@ -49,6 +51,7 @@ mutable struct MPCDriver <: DriverModel{LatLonAccel}
         retval.noise_θ = noise_θ
 		retval.lookahead = lookahead
 		retval.v_des = v_des
+		retval.stop_d = stop_d
 
         retval.a = NaN
         retval.δ = NaN
@@ -62,12 +65,16 @@ mutable struct MPCDriver <: DriverModel{LatLonAccel}
     end
 end
 get_name(::MPCDriver) = "MPCDriver"
+function set_desired_speed!(model::MPCDriver, v_des::Float64)
+    model.v_des = v_des
+    model
+end
 
 function lane_tag_modifier(right::Bool, left::Bool, rΔ::Float64, lΔ::Float64,
 							mΔ::Float64)
 	if right && rΔ > mΔ
 		if left
-			if rΔ >= lΔ
+			if rΔ > lΔ
 				return -1, rΔ
 			end
 		end
@@ -76,7 +83,7 @@ function lane_tag_modifier(right::Bool, left::Bool, rΔ::Float64, lΔ::Float64,
 
 	if left && lΔ > mΔ
 		if right
-			if lΔ >= rΔ
+			if lΔ > rΔ
 				return 1, lΔ
 			end
 		end
@@ -96,30 +103,35 @@ function observe!(driver::MPCDriver, scene::Scene, roadway::Roadway, egoid::Int)
 
     left_exists = convert(Float64, get(N_LANE_LEFT, driver.rec, roadway, self_idx)) > 0
     right_exists = convert(Float64, get(N_LANE_RIGHT, driver.rec, roadway, self_idx)) > 0
-    fore_M = get_neighbor_fore_along_lane(scene, self_idx, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront(), max_distance_fore=driver.lookahead)
+	fore_M = get_neighbor_fore_along_lane(scene, self_idx, roadway, VehicleTargetPointFront(), VehicleTargetPointRear(), VehicleTargetPointFront(), max_distance_fore=driver.lookahead)
     fore_L = get_neighbor_fore_along_left_lane(scene, self_idx, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront(), max_distance_fore=driver.lookahead)
     fore_R = get_neighbor_fore_along_right_lane(scene, self_idx, roadway, VehicleTargetPointRear(), VehicleTargetPointRear(), VehicleTargetPointFront(), max_distance_fore=driver.lookahead)
-
+	# rear_M = get_neighbor_rear_along_lane(scene, self_idx, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear(), max_distance_rear=driver.lookahead)
+	# rear_L = get_neighbor_rear_along_left_lane(scene, self_idx, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear(), max_distance_rear=driver.lookahead)
+    # rear_R = get_neighbor_rear_along_right_lane(scene, self_idx, roadway, VehicleTargetPointFront(), VehicleTargetPointFront(), VehicleTargetPointRear(), max_distance_rear=driver.lookahead)
 
 	lane_choice, headway = lane_tag_modifier(right_exists, left_exists, fore_R.Δs, fore_L.Δs, fore_M.Δs)
+	headway = min(headway/2.0, driver.lookahead)
 	target_lane = roadway[LaneTag(ego_lane.tag.segment, ego_lane.tag.lane + lane_choice)]
 	ego_target = Frenet(ego_state.posG, target_lane, roadway) # egostate projected onto target lane
-	target_roadind = move_along(ego_target.roadind, roadway, driver.lookahead) # RoadIndex after moving along target lane
+	target_roadind = move_along(ego_target.roadind, roadway, headway) # RoadIndex after moving along target lane
 	target_pos = Frenet(target_roadind, roadway) # Frenet position on target lane after moving
 
 	target = MPCState()
-	target.x = headway
 	target.y = lane_choice * target_lane.width - ego_state.posF.t
 	target.θ = 0.0
-	target.v = driver.v_des * (headway/driver.lookahead)
+	# TODO: wtf is this?
+	check = min(fore_R.Δs, fore_L.Δs, fore_M.Δs) < driver.stop_d * 2.0
+	target.x = check ? driver.stop_d : headway
+	target.v = 0.0
 	target.β = 0.0
 
 	self = MPCState(x=0.0, y=0.0, θ=ego_state.posF.ϕ, v=ego_state.v, β=0.0)
     params = zeros(6)
     hyperparams = [driver.n, driver.timestep, driver.interp]
-    params, a1, δ1 = optimise_trajectory(target, params, hyperparams, initial=self)
-	self = MPCState(x=ego_state.posG.x, y=ego_state.posG.y, θ=ego_state.posG.θ, v=ego_state.v, β=ego_state.posF.ϕ)
-	last = generate_last_state!(self, params, hyperparams)
+    params, a1, δ1, s_fin = optimise_trajectory(target, params, hyperparams, initial=self)
+
+	# @printf("(%2.2f, %2.2f, %2.2f, %2.2f)\n", ego_state.v, target.v, s_fin.v, a1)
 
 	driver.a = a1
 	driver.δ = δ1
