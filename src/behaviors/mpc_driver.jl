@@ -59,7 +59,7 @@ mutable struct MPCDriver <: DriverModel{LatLonAccel}
         retval.n = 26
 		retval.timestep = timestep
         # retval.time = 5.0
-		retval.interp = 2
+		retval.interp = 1
 
         retval
     end
@@ -122,7 +122,7 @@ function observe!(driver::MPCDriver, scene::Scene, roadway::Roadway, egoid::Int)
 	target.θ = 0.0
 	# TODO: wtf is this?
 	check = min(fore_R.Δs, fore_L.Δs, fore_M.Δs) < driver.stop_d * 2.0
-	target.x = check ? driver.stop_d : headway
+	target.x = check ? min(headway, driver.stop_d) : headway
 	target.v = 0.0
 	target.β = 0.0
 

@@ -11,10 +11,10 @@ function state_cost(s::MPCState; p::Real=2)
 end
 
 function traj_cost!(s::MPCState, params::Vector{Float64}, target::MPCState,
-					hyperparams::Vector{Float64})
+					hyperparams::Vector{Float64}; λ::Float64=1.0)
 	s = generate_last_state!(s, params, hyperparams)
 	Δs = state_diff(target, s)
-	return state_cost(Δs)
+	return state_cost(Δs) + λ*norm(params, 1)
 end
 
 function state_diff(target::MPCState, curr::MPCState)
