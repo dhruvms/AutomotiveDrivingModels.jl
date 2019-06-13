@@ -1,6 +1,17 @@
-const L_R = 2.0
-const L_F = 2.0
+const L_R = 2.0 # Distance between bicycle rear wheel and CoG (m)
+const L_F = 2.0 # Distance between bicycle front wheel and CoG (m)
 
+"""
+    MPCState
+Vehicle state for MPC based on the bicycle model.
+
+# Fields
+- `x::Float64 = 0.0` global x position (m)
+- `y::Float64 = 0.0` global y position (m)
+- `θ::Float64 = 0.0` global heading (rad)
+- `v::Float64 = 0.0` velocity (m/s)
+- `β::Float64 = 0.0` front wheel steering angle, relative to θ (rad)
+"""
 @with_kw mutable struct MPCState
 	x::Float64 = 0.0
 	y::Float64 = 0.0
@@ -25,6 +36,10 @@ function state_vec(s::MPCState)
     return v
 end
 
+"""
+    update_mpc_state!(s::MPCState, a::Float64, δf::Float64, Δt::Float64)
+Apply control based on bicycle model.
+"""
 function update_mpc_state!(s::MPCState, a::Float64, δf::Float64, Δt::Float64)
 	s.x += s.v * cos(s.θ + s.β) * Δt
 	s.y += s.v * sin(s.θ + s.β) * Δt
@@ -39,6 +54,14 @@ function update_mpc_state!(s::MPCState, a::Float64, δf::Float64, Δt::Float64)
 	s.β = clamp(s.β, -π/4, π/4)
 end
 
+"""
+	generate_trajectory!(s::MPCState, params::Vector{Float64},
+								hyperparams::Vector{Float64};
+								noisy::Bool=false)
+Given a set of parameters that define the acceleration and steering polynomials
+over time, generate a bicycle model trajectory from the initial state for a
+duration specified by the hyperparameters.
+"""
 function generate_trajectory!(s::MPCState, params::Vector{Float64},
 								hyperparams::Vector{Float64};
 								noisy::Bool=false)
@@ -72,6 +95,12 @@ function generate_trajectory!(s::MPCState, params::Vector{Float64},
 	return s, a_interm[1], δ_interm[1]
 end
 
+"""
+	generate_last_state!(s::MPCState, params::Vector{Float64},
+								hyperparams::Vector{Float64};
+								noisy::Bool=false)
+Return the last state of the generated trajectory.
+"""
 function generate_last_state!(s::MPCState, params::Vector{Float64},
 								hyperparams::Vector{Float64};
 								noisy::Bool=false)

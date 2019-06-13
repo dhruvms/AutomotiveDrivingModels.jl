@@ -1,3 +1,7 @@
+"""
+Mod(x::T, y::T) and  Wrap*(angle::T) are a bunch of modulus helper functions.
+From https://stackoverflow.com/questions/4633177/c-how-to-wrap-a-float-to-the-interval-pi-pi
+"""
 function Mod(x::T, y::T) where T <: Real
 	if y == 0.0
 		return x
@@ -50,6 +54,11 @@ function Wrap360(angle::T) where T <: Real
 	return Mod(angle, 360.0)
 end
 
+"""
+	GetΔtVec(log::Bool, base::Float64, ord::Float64,
+					n::Int64, timestep::Float64)
+Sampling function for timesteps (can sample on linear or log scale given a base)
+"""
 function GetΔtVec(log::Bool, base::Float64, ord::Float64,
 					n::Int64, timestep::Float64)
 	times = nothing
@@ -63,6 +72,14 @@ function GetΔtVec(log::Bool, base::Float64, ord::Float64,
 	return times
 end
 
+"""
+	OrnsteinUhlenbeckNoise
+
+Ornstein-Uhlenbeck noise model.
+https://en.wikipedia.org/wiki/Ornstein–Uhlenbeck_process
+Implementation taken from OpenAI Baselines implementation of DDPG.
+https://github.com/openai/baselines/blob/master/baselines/ddpg/noise.py
+"""
 mutable struct OrnsteinUhlenbeckNoise
 	μ::Vector{Float64}
 	σ::Float64

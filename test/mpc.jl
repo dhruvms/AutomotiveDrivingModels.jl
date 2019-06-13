@@ -9,7 +9,7 @@ width = 10.0
 radius = 20.0
 
 roadway = gen_stadium_roadway(lanes, length=length, width=width, radius=radius)
-num_vehs = 80
+num_vehs = 100
 timestep = 0.2
 max_v = 15.0
 
@@ -58,7 +58,7 @@ for i in 1:(num_vehs/lanes)
 end
 cam = FitToContentCamera(0.01)
 
-nticks = 2000
+nticks = 5000
 rec = SceneRecord(nticks+1, timestep)
 simulate!(rec, scene, roadway, models, nticks)
 render(rec[0], roadway, cam=cam, car_colors=carcolors)

@@ -10,6 +10,12 @@ function state_cost(s::MPCState; p::Real=2)
 	return norm(sv, p)
 end
 
+"""
+	traj_cost!(s::MPCState, params::Vector{Float64}, target::MPCState,
+					hyperparams::Vector{Float64}; λ::Float64=1.0)
+Calculate the cost of the trajectory from initial state `s` given a set of
+parameters and a desired final state `target`.
+"""
 function traj_cost!(s::MPCState, params::Vector{Float64}, target::MPCState,
 					hyperparams::Vector{Float64}; λ::Float64=1.0)
 	s = generate_last_state!(s, params, hyperparams)
@@ -52,6 +58,12 @@ function get_jacobian_column(target::MPCState, params::Vector{Float64},
     return Δs_col
 end
 
+"""
+	calc_jacobian(target::MPCState, params::Vector{Float64},
+						hyperparams::Vector{Float64},
+						initial::MPCState)
+Calculate the state Jacobian with respect to the trajectory parameters.
+"""
 function calc_jacobian(target::MPCState, params::Vector{Float64},
 						hyperparams::Vector{Float64},
 						initial::MPCState)
@@ -63,6 +75,12 @@ function calc_jacobian(target::MPCState, params::Vector{Float64},
     return J
 end
 
+"""
+	α_line_search(Δp::Vector{Float64}, params::Vector{Float64},
+								target::MPCState, hyperparams::Vector{Float64},
+								initial::MPCState)
+Step size line search.
+"""
 function α_line_search(Δp::Vector{Float64}, params::Vector{Float64},
                                 target::MPCState, hyperparams::Vector{Float64},
 								initial::MPCState)
@@ -102,6 +120,14 @@ function set_initial_state!(s::MPCState, initial::MPCState)
 	end
 end
 
+"""
+	optimise_trajectory(target::MPCState, params::Vector{Float64},
+								hyperparams::Vector{Float64};
+								initial::MPCState=nothing,
+								iters::Int64=50, min_cost::Float64=0.1,
+								early_term::Float64=1e-9)
+Optimise MPC trajectory parameters.
+"""
 function optimise_trajectory(target::MPCState, params::Vector{Float64},
                             	hyperparams::Vector{Float64};
 								initial::MPCState=nothing,
@@ -138,7 +164,7 @@ function optimise_trajectory(target::MPCState, params::Vector{Float64},
         end
 
         α = α_line_search(Δp, params, target, hyperparams, initial)
-        params += α .* Δp
+		params += α .* Δp
 		params[1:3] .= clamp!(params[1:3], MIN_a, MAX_a)
 		params[4:6] .= clamp!(params[4:6], MIN_δ, MAX_δ)
     end
